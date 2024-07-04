@@ -70,21 +70,23 @@ def update_order_book(data):
     logger.info("Order book updated")
 
 # Get current account balance for the given asset
-async def get_account_balance(session, asset, time_diff):
+async def get_account_balance(session, asset, time_diff, retries=3):
     url = 'https://api.binance.com/api/v3/account'
     headers = {
         'X-MBX-APIKEY': API_KEY
     }
     params = {'timestamp': int(asyncio.get_event_loop().time() * 1000) + time_diff}
     signed_params = create_signed_payload(params)
-    async with session.get(url, headers=headers, params=signed_params) as response:
-        account_info = await response.json()
-        if 'balances' not in account_info:
+    for attempt in range(retries):
+        async with session.get(url, headers=headers, params=signed_params) as response:
+            account_info = await response.json()
+            if 'balances' in account_info:
+                for balance in account_info['balances']:
+                    if balance['asset'] == asset:
+                        return float(balance['free'])
             logger.error(f"Error fetching account balance: {account_info}")
-            return 0.0
-        for balance in account_info['balances']:
-            if balance['asset'] == asset:
-                return float(balance['free'])
+            if 'code' in account_info and account_info['code'] == -1021:
+                time_diff = await get_server_time_diff(session)
     return 0.0
 
 # Fetch exchange information for the trading pair
@@ -107,7 +109,9 @@ async def get_historical_prices(session, symbol, interval, limit=100):
     url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
     async with session.get(url) as response:
         klines = await response.json()
-        return [float(kline[4]) for kline in klines]  # Closing prices
+        closing_prices = [float(kline[4]) for kline in klines]  # Closing prices
+        logger.info(f"Fetched {len(closing_prices)} historical prices")
+        return closing_prices
 
 # Calculate moving averages
 def calculate_moving_averages(prices, window):
@@ -139,6 +143,7 @@ async def place_buy_order(session, time_diff, min_lot_size, tick_size):
         return
     ma3 = calculate_moving_averages(historical_prices[-30:], 3)
     ma30 = calculate_moving_averages(historical_prices[-30:], 30)
+    logger.info(f"MA3: {ma3[-1]}, MA30: {ma30[-1]}")
     if ma3[-1] <= ma30[-1]:
         logger.info("MA3 has not crossed above MA30, skipping buy order")
         return
