@@ -25,6 +25,7 @@ TRADE_SYMBOL = 'BONKUSDT'
 ORDER_AMOUNT_USDT = 100  # Fixed amount to spend on each buy order
 ORDER_BOOK_DEPTH = 20  # Top 20 levels of order book
 MIN_PROFIT_MARGIN = 0.0044  # 0.44% to cover 0.11% buy fee, 0.11% sell fee, and 0.22% profit margin
+DECIMAL_PRECISION = 2  # Decimal precision for order quantity
 COOLDOWN_PERIOD = 60  # Cooldown period in seconds (1 minute)
 SAFETY_PROFIT_THRESHOLD = 0.0044  # Safety profit threshold set to 0.44%
 TRADE_FEE_PERCENT = 0.0011  # 0.11% trade fee per transaction
@@ -164,7 +165,8 @@ async def place_buy_order(session, time_diff, min_lot_size, tick_size):
 
     quantity = ORDER_AMOUNT_USDT / buy_price
     quantity = round_quantity(quantity, tick_size)
-    if quantity < min_lot_size:
+    quantity = "{:.8f}".format(quantity).rstrip('0').rstrip('.')  # Ensure quantity has correct precision
+    if float(quantity) < min_lot_size:
         logger.error(f"Calculated quantity {quantity} is less than minimum lot size {min_lot_size}")
         return
     url = 'https://api.binance.com/api/v3/order'
@@ -173,8 +175,8 @@ async def place_buy_order(session, time_diff, min_lot_size, tick_size):
         'side': SIDE_BUY,
         'type': ORDER_TYPE_LIMIT,
         'timeInForce': TIME_IN_FORCE_GTC,
-        'quantity': f"{quantity:.8f}",  # Ensure quantity has correct precision
-        'price': f"{buy_price:.8f}",
+        'quantity': quantity,
+        'price': f"{buy_price:.8f}".rstrip('0').rstrip('.'),  # Ensure price has correct precision
         'timestamp': int(asyncio.get_event_loop().time() * 1000) + time_diff
     }
     signed_params = create_signed_payload(params)
@@ -199,7 +201,8 @@ async def place_sell_order(session, time_diff, min_lot_size, tick_size, sell_pri
     if quantity <= 0:
         return
     quantity = round_quantity(quantity, tick_size)
-    if quantity < min_lot_size:
+    quantity = "{:.8f}".format(quantity).rstrip('0').rstrip('.')  # Ensure quantity has correct precision
+    if float(quantity) < min_lot_size:
         logger.error(f"Calculated quantity {quantity} is less than minimum lot size {min_lot_size}")
         return
     if not order_book['bids']:
@@ -207,7 +210,7 @@ async def place_sell_order(session, time_diff, min_lot_size, tick_size, sell_pri
         return
 
     best_bid = order_book['bids'][0][0]
-    min_sell_price = calculate_min_sell_price(buy_price, quantity)
+    min_sell_price = calculate_min_sell_price(buy_price, float(quantity))
     if sell_price is None:
         if best_bid > min_sell_price:
             sell_price = best_bid
@@ -223,8 +226,8 @@ async def place_sell_order(session, time_diff, min_lot_size, tick_size, sell_pri
         'side': SIDE_SELL,
         'type': ORDER_TYPE_LIMIT,
         'timeInForce': TIME_IN_FORCE_GTC,
-        'quantity': f"{quantity:.8f}",  # Ensure quantity has correct precision
-        'price': f"{sell_price:.8f}",
+        'quantity': quantity,
+        'price': f"{sell_price:.8f}".rstrip('0').rstrip('.'),  # Ensure price has correct precision
         'timestamp': int(asyncio.get_event_loop().time() * 1000) + time_diff
     }
     signed_params = create_signed_payload(params)
