@@ -25,7 +25,7 @@ TRADE_SYMBOL = 'BONKUSDT'
 ORDER_AMOUNT_USDT = 100  # Fixed amount to spend on each buy order
 ORDER_BOOK_DEPTH = 20  # Top 10 levels of order book
 MIN_PROFIT_MARGIN = 0.0044  # 0.44% to cover 0.11% buy fee, 0.11% sell fee, and 0.22% profit margin
-DECIMAL_PRECISION = 2  # Decimal precision for order quantity
+DECIMAL_PRECISION = 8  # Decimal precision for order quantity
 COOLDOWN_PERIOD = 60  # Cooldown period in seconds (1 minute)
 SAFETY_PROFIT_THRESHOLD = 0.0044  # Safety profit threshold set to 0.44%
 TRADE_FEE_PERCENT = 0.0011  # 0.11% trade fee per transaction
@@ -160,7 +160,7 @@ async def place_buy_order(session, time_diff, min_lot_size, tick_size):
 
     buy_price = best_bid
     quantity = ORDER_AMOUNT_USDT / buy_price
-    quantity = round_step_size(quantity, min_lot_size)
+    quantity = round_step_size(quantity, tick_size)
     if quantity < min_lot_size:
         logger.error(f"Calculated quantity {quantity} is less than minimum lot size {min_lot_size}")
         return
@@ -196,7 +196,7 @@ async def place_sell_order(session, time_diff, min_lot_size, tick_size, sell_pri
     quantity = await get_account_balance(session, asset, time_diff)
     if quantity <= 0:
         return
-    quantity = round_step_size(quantity, min_lot_size)
+    quantity = round_step_size(quantity, tick_size)
     if quantity < min_lot_size:
         logger.error(f"Calculated quantity {quantity} is less than minimum lot size {min_lot_size}")
         return
@@ -305,7 +305,7 @@ async def main():
     async with aiohttp.ClientSession() as session:
         time_diff = await get_server_time_diff(session)
         min_lot_size, tick_size = await get_exchange_info(session)
-        historical_prices.extend(await get_historical_prices(session, TRADE_SYMBOL, '1m'))
+        historical_prices.extend(await get_historical_prices(session, TRADE_SYMBOL, '3m'))
         await listen_to_depth_stream(session, time_diff, min_lot_size, tick_size)
 
 if __name__ == '__main__':
