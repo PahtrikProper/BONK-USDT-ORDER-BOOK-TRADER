@@ -1,76 +1,61 @@
 # BONK-USDT-ORDER-BOOK-TRADER
+This script is an automated trading bot designed to trade the BONKUSDT pair on the Binance exchange. It uses a scalping strategy based on moving average (MA) crossovers to identify buy opportunities and employs a sell strategy that aims to maximize profit while also having safety measures to minimize losses.
 
-# Binance Trading Bot
+Key Components
+Libraries and Setup:
 
-This script is an automated trading bot for the Binance exchange. It uses a scalping strategy to maximize profits while minimizing risks by analyzing the order book and placing buy and sell orders accordingly.
+The script uses various libraries including os, asyncio, logging, json, aiohttp, hmac, hashlib, time, and numpy.
+Binance API client is initialized using the binance.client.Client.
+Logging is configured to output information and error messages.
+Global Variables:
 
-## Features
-- Places buy orders based on moving average crossover strategy
-- Ensures minimum profit margin to cover trading fees and earn profit
-- Places safety sell orders to avoid losses when prices drop
-- Cooldown period between trades to avoid frequent trading
+API Credentials: Loaded from environment variables.
+Trading Parameters: Define trading behaviors such as TRADE_SYMBOL, ORDER_AMOUNT_USDT, MIN_PROFIT_MARGIN, COOLDOWN_PERIOD, SAFETY_PROFIT_THRESHOLD, and TRADE_FEE_PERCENT.
+Data Structures: Hold the order book data and track the current trading position and historical prices.
+Helper Functions:
 
-## Requirements
-- Python 3.7 or higher
-- aiohttp
-- numpy
-- binance
+get_server_time_diff: Calculates the time difference between the local machine and Binance server.
+create_signed_payload: Generates a signed payload for secure API requests.
+update_order_book: Updates the global order book with the latest data.
+get_account_balance: Retrieves the account balance for a specified asset.
+get_exchange_info: Fetches the exchange information to determine minimum lot size and tick size for orders.
+get_historical_prices: Fetches historical closing prices for the specified trading pair.
+calculate_moving_averages: Calculates moving averages for a given list of prices.
+calculate_fees: Calculates trading fees based on the trade amount and price.
+calculate_min_sell_price: Determines the minimum sell price required to cover fees and achieve the desired profit margin.
+round_quantity: Rounds the order quantity to the nearest valid increment.
+Trading Logic:
 
-## Installation
+place_buy_order: Places a buy order if conditions are met:
+No existing open position.
+Cooldown period has passed.
+MA3 has crossed above MA6.
+Potential profit meets or exceeds the minimum profit margin.
+place_sell_order: Places a sell order for the current position:
+Attempts to sell at the best available bid price.
+Ensures the sell price covers fees and meets the minimum profit margin.
+Resets flags and updates position status after selling.
+check_open_order: Checks if there is an existing open order and updates the position status.
+check_break_even_sell_order: Places a sell order at break-even price if the potential profit drops below the safety threshold.
+WebSocket and Main Execution Loop:
 
-1. Clone the repository or download the script.
-2. Install the required Python packages:
-    ```
-    pip install aiohttp numpy python-binance
-    ```
+handle_socket_msg: Handles incoming WebSocket messages to update the order book and execute the trading strategy.
+listen_to_depth_stream: Listens to the order book depth stream and processes incoming data.
+main: The main function that initializes the session, retrieves initial data, and starts the WebSocket listener.
+How It Works
+Initialization:
 
-## Configuration
+The script initializes global variables and sets up logging.
+It connects to the Binance API using the provided API key and secret.
+Fetching Initial Data:
 
-1. Set up your Binance API credentials in your environment variables:
-    ```
-    export BINANCE_API_KEY='your_api_key'
-    export BINANCE_API_SECRET='your_api_secret'
-    ```
+The script retrieves the server time difference, exchange information, and historical prices for the specified trading pair (BONKUSDT).
+Listening to WebSocket:
 
-## Usage
+The script listens to the order book depth stream for the specified trading pair.
+It continuously updates the order book and processes new data to decide on trading actions.
+Trading Strategy:
 
-Run the script using Python:
-```
-python trading_bot.py
-```
-
-## Script Explanation
-
-### Parameters
-
-- `TRADE_SYMBOL`: The trading pair symbol (e.g., 'BONKUSDT').
-- `ORDER_AMOUNT_USDT`: The fixed amount in USDT to spend on each buy order.
-- `ORDER_BOOK_DEPTH`: The depth of the order book to consider.
-- `MIN_PROFIT_MARGIN`: The minimum profit margin required to place a sell order, accounting for trading fees.
-- `DECIMAL_PRECISION`: The decimal precision for order quantity.
-- `COOLDOWN_PERIOD`: The cooldown period in seconds between trades.
-- `SAFETY_PROFIT_THRESHOLD`: The threshold profit margin for placing safety sell orders.
-- `TRADE_FEE_PERCENT`: The trading fee percentage per transaction.
-
-### Functions
-
-- `get_server_time_diff(session)`: Gets the time difference between the server and local machine.
-- `create_signed_payload(params, recv_window=5000)`: Creates a signed payload for authenticated requests.
-- `update_order_book(data)`: Updates the order book with the latest data.
-- `get_account_balance(session, asset, time_diff)`: Gets the current account balance for the given asset.
-- `get_exchange_info(session)`: Fetches exchange information for the trading pair.
-- `get_historical_prices(session, symbol, interval, limit=100)`: Fetches historical price data.
-- `calculate_moving_averages(prices, window)`: Calculates moving averages.
-- `calculate_fees(amount, price)`: Calculates the trading fees.
-- `calculate_min_sell_price(buy_price, amount)`: Calculates the minimum sell price to cover fees and profit margin.
-- `place_buy_order(session, time_diff, min_lot_size, tick_size)`: Places a buy order.
-- `place_sell_order(session, time_diff, min_lot_size, tick_size, sell_price=None)`: Places a sell order.
-- `check_open_order(session, time_diff)`: Checks if there is an open order.
-- `check_break_even_sell_order(session, time_diff, min_lot_size, tick_size)`: Checks for break-even sell orders.
-- `scalping_strategy(session, time_diff, min_lot_size, tick_size)`: Executes the scalping strategy.
-- `handle_socket_msg(session, msg, time_diff, min_lot_size, tick_size)`: Handles incoming websocket messages.
-- `listen_to_depth_stream(session, time_diff, min_lot_size, tick_size)`: Listens to the depth stream websocket.
-
-## Disclaimer
-
-This script is for educational purposes only. Trading cryptocurrencies involves significant risk and can result in substantial financial losses. Use this script at your own risk.
+When MA3 crosses above MA6 and the potential profit meets the minimum profit margin, the script places a buy order.
+It monitors the position and places a sell order either at the desired profit target or at break-even if the profit potential diminishes.
+Ensures only one buy order per MA crossover and manages cooldown periods between trades.
